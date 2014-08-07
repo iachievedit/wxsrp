@@ -25,6 +25,10 @@ from binascii import hexlify
 from hashlib import sha1
 from bitstring import BitStream
 
+def uhexlify(h):
+    s = hexlify(h).upper()
+    return " ".join(s[i:i+8] for i in range(0, len(s), 8))
+
 def bytes_to_long(s):
     n = ord(s[0])
     for b in ( ord(x) for x in s[1:] ):
@@ -43,6 +47,14 @@ def long_to_bytes(n):
     l.reverse()
     return ''.join(l)
 
+##
+#
+#    Function:  calc_k
+# Description:
+#      Inputs:  N : long
+#               g : long
+#     Returns:  H(N | g)
+#
 def calc_k(N, g):
     nhex = hexlify(long_to_bytes(N))
 
@@ -57,6 +69,12 @@ def calc_k(N, g):
     k = int(sha1(BitStream(hex=hashin).bytes).hexdigest(), 16) % N
     return k
 
+##
+#
+# username:  UTF-8 string
+# password:  UTF-8 string
+# salt:      long
+#
 def calc_x(username, password, salt):
     shex = hexlify(long_to_bytes(salt))
     if len(shex) % 2 != 0:
@@ -68,14 +86,66 @@ def calc_x(username, password, salt):
     x = int(sha1(BitStream(hex=hashin).bytes).hexdigest(), 16)
     return x
 
+#
+#  calc_u
+#  A : long
+#  B : long
+#  N : long
+#
+# Returns:  long
+def calc_u(A, B, N):
+    nhex = hexlify(long_to_bytes(N))
+    nlen = 2 * ((len(nhex) * 4 + 7) >> 3)
+    Ahex = hexlify(long_to_bytes(A))
+    Bhex = hexlify(long_to_bytes(B))
+    hashin = '0' * (nlen - len(Ahex)) + Ahex \
+           + '0' * (nlen - len(Bhex)) + Bhex
+
+    return int(sha1(BitStream(hex=hashin).bytes).hexdigest(), 16)
+           
+
 N = 167609434410335061345139523764350090260135525329813904557420930309800865859473551531551523800013916573891864789934747039010546328480848979516637673776605610374669426214776197828492691384519453218253702788022233205683635831626913357154941914129985489522629902540768368409482248290641036967659389658897350067939L
 
 g = 2
 
 k = calc_k(N, g)
 
-print hexlify(long_to_bytes(k))
-    
-x = calc_x("alice", "password123", bytes_to_long(BitStream(hex="BEB25379 D1A8581E B5A72767 3A2441EE").bytes))
+print "k = %s" % uhexlify(long_to_bytes(k))
 
-print hexlify(long_to_bytes(x))
+# Test vector salt
+salt = int("BEB25379D1A8581EB5A727673A2441EE", 16)
+    
+x = calc_x("alice", "password123", salt)
+
+print "x = %s" % uhexlify(long_to_bytes(x))
+
+v = pow(g, x, N)
+
+print "v = %s" % uhexlify(long_to_bytes(v))
+
+a = int("60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393", 16)
+b = int("E487CB59D31AC550471E81F00F6928E01DDA08E974A004F49E61F5D105284D20", 16)
+
+B = (pow(g, b, N) + k * v) % N # B = (g^b + kv) mod N
+
+print "B = %s" % uhexlify(long_to_bytes(B))
+
+A = pow(g, a, N)
+
+print "A = %s" % uhexlify(long_to_bytes(A))
+
+
+username = 'alice'
+password = 'password123'
+
+u = calc_u(A, B, N)
+
+print "u = %s" % uhexlify(long_to_bytes(u))
+
+Sc = pow((B + N*k - pow(g, x, N)*k) % N, x * u + a, N)
+
+print "Sc = %s" % uhexlify(long_to_bytes(Sc))
+
+Ss = pow((pow(v, u, N) * A % N), b, N) # S = ((v^u * A)^b) % N
+
+print "Ss = %s" % uhexlify(long_to_bytes(Ss))
