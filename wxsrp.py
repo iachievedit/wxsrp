@@ -23,6 +23,12 @@
 
 import wx
 
+from binascii import hexlify
+
+from srp import User, NG_1024
+
+def upperHexLong(longvalue):
+    return hexlify(long_to_bytes(longvalue)).upper()
 
 class MyFrame(wx.Frame):
     """
@@ -31,7 +37,7 @@ class MyFrame(wx.Frame):
     """
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, -1, title,
-                          pos=(150, 150), size=(350, 250))
+                          pos=(150, 150), size=(350, 400))
 
         # Create the menubar
         menuBar = wx.MenuBar()
@@ -52,7 +58,6 @@ class MyFrame(wx.Frame):
         self.SetMenuBar(menuBar)
 
         self.CreateStatusBar()
-        
 
         # Now create the Panel to put the other controls on.
         panel = wx.Panel(self)
@@ -71,15 +76,17 @@ class MyFrame(wx.Frame):
         lModulusN.SetFont(normalLabelFont)
         lModulusN.SetSize(lModulusN.GetBestSize())
 
-        tModulusN = wx.TextCtrl(self, value="N", size=(256,-1))
+        self.tModulusN = wx.TextCtrl(self, value="N", size=(512,-1))
 
         lGeneratorG = wx.StaticText(panel, -1, "Generator (g) = ")
         lGeneratorG.SetFont(normalLabelFont)
-#        lGeneratorG.SetSize(lGeneratorG.GetBestSize())
+
+        self.tGeneratorG = wx.TextCtrl(self, value="g", size=(256,-1))
 
         lMultiplierK = wx.StaticText(panel, -1, "Multiplier (k) = ")
         lMultiplierK.SetFont(normalLabelFont)
-#        lMultiplierK.SetSize(lMultiplierK.GetBestSize())
+
+        self.tMultiplierK = wx.TextCtrl(self, value="k", size=(128,-1))
 
         l2 = wx.StaticText(panel, -1, "Password Database (server-side)")
         l2.SetFont(wx.Font(14, wx.SWISS, wx.NORMAL, wx.BOLD))
@@ -102,9 +109,11 @@ class MyFrame(wx.Frame):
         sizer.Add(l0, 0, wx.ALL, 10)
         sizer.Add(l1, 0, wx.ALL, 10)
         sizer.Add(lModulusN, 0, wx.ALL, 10)
-        sizer.Add(tModulusN, 0, wx.ALL, 10)
+        sizer.Add(self.tModulusN, 0, wx.ALL, 10)
         sizer.Add(lGeneratorG, 0, wx.ALL, 10)
+        sizer.Add(self.tGeneratorG, 0, wx.ALL, 10)
         sizer.Add(lMultiplierK, 0, wx.ALL, 10)
+        sizer.Add(self.tMultiplierK, 0, wx.ALL, 10)
         sizer.Add(l2, 0, wx.ALL, 10)
         sizer.Add(l3, 0, wx.ALL, 10)
         sizer.Add(btn, 0, wx.ALL, 10)
@@ -126,19 +135,30 @@ class MyFrame(wx.Frame):
 
     def OnFunButton(self, evt):
         """Event handler for the button click."""
-        print "Having fun yet?"
+        self.user = User("alice", "password123", ng_type=NG_1024)
 
+        (N, g, k) = self.user.get_ngk()
+
+        self.tModulusN.Clear() # Clear it 
+        self.tModulusN.WriteText(upperHexLong(N)) # Set it
+
+        self.tGeneratorG.Clear()
+        self.tGeneratorG.WriteText(upperHexLong(g))
+
+        self.tMultiplierK.Clear()
+        self.tMultiplierK.WriteText(upperHexLong(k))
+
+        
 
 class MyApp(wx.App):
     def OnInit(self):
-        frame = MyFrame(None, "Simple wxPython App")
+        frame = MyFrame(None, "SRP-6a")
         self.SetTopWindow(frame)
-
-        print "Print statements go to this stdout window by default."
 
         frame.Show(True)
         return True
-        
+
+
 app = MyApp(redirect=True)
 app.MainLoop()
 
